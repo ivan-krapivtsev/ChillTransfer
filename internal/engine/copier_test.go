@@ -311,7 +311,7 @@ func TestCopierPerFileErrorContinuesByDefault(t *testing.T) {
 		t.Errorf("item statuses = [%s %s], want [done failed]", items[0].Status, items[1].Status)
 	}
 	assertFileContent(t, filepath.Join(dest, "good.txt"), []byte("ok")) // next item was reached
-	if got := q.ProcessedBytes(); got != 6 { // 2 ("ok") + 4 ("boom", failed counts)
+	if got := q.ProcessedBytes(); got != 6 {                            // 2 ("ok") + 4 ("boom", failed counts)
 		t.Errorf("ProcessedBytes() = %d, want 6", got)
 	}
 	_ = goodSrc
@@ -562,8 +562,8 @@ func TestCopierRunWithoutDest(t *testing.T) {
 
 func TestProgressValues(t *testing.T) {
 	pct, speed, eta := progressValues(1000, 250, 250, 5*time.Second)
-	assertClose(t, pct, 25) // 250 of 1000 bytes processed
-	assertClose(t, speed, 50) // 250 B / 5 s
+	assertClose(t, pct, 25)    // 250 of 1000 bytes processed
+	assertClose(t, speed, 50)  // 250 B / 5 s
 	if eta != 15*time.Second { // (1000-250) remaining at 50 B/s
 		t.Errorf("ETA = %s, want 15s", eta)
 	}

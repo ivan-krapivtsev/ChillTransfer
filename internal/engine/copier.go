@@ -30,9 +30,9 @@ type Copier struct {
 	Queue        *Queue
 	Governor     Governor // nil means no pacing: copying is always allowed
 	Clock        Clock
-	Dest         string   // destination root directory (required)
-	Overwrite    bool     // false (default): skip existing files whose size+mtime match
-	StopOnError  bool     // true: stop the whole run on the first file error
+	Dest         string        // destination root directory (required)
+	Overwrite    bool          // false (default): skip existing files whose size+mtime match
+	StopOnError  bool          // true: stop the whole run on the first file error
 	TickInterval time.Duration // governor polling period; 0 means check at every file boundary
 
 	mu          sync.Mutex
@@ -68,10 +68,10 @@ func NewCopier(queue *Queue, dest string, gov Governor, clock Clock) *Copier {
 // Snapshot is a point-in-time view of the copy process for UI polling.
 type Snapshot struct {
 	State          State
-	OverallPercent float64 // 0..100 over all queue bytes; done/failed/skipped count as processed
-	CurrentFile   string  // source path currently being written; empty between items and when idle
-	SpeedBps      float64 // average throughput since run start, including pauses
-	ETA          time.Duration // remaining bytes / SpeedBps; zero when unknown or nothing left
+	OverallPercent float64       // 0..100 over all queue bytes; done/failed/skipped count as processed
+	CurrentFile    string        // source path currently being written; empty between items and when idle
+	SpeedBps       float64       // average throughput since run start, including pauses
+	ETA            time.Duration // remaining bytes / SpeedBps; zero when unknown or nothing left
 }
 
 // Snapshot returns a thread-safe point-in-time view of the process.
@@ -192,7 +192,10 @@ func (c *Copier) processItem(ctx context.Context, index int) (ItemStatus, error)
 	}
 
 	var nCopied, nSkipped int
-	type dirTime struct{ src, dest string; mod time.Time }
+	type dirTime struct {
+		src, dest string
+		mod       time.Time
+	}
 	var dirs []dirTime
 	walkErr := filepath.WalkDir(item.Path, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -356,7 +359,7 @@ func progressValues(total, processed, copiedBytes uint64, elapsed time.Duration)
 		speed = float64(copiedBytes) / elapsed.Seconds()
 	}
 	if speed > 0 && processed < total {
-		eta = time.Duration(float64(total-processed)/speed * float64(time.Second))
+		eta = time.Duration(float64(total-processed) / speed * float64(time.Second))
 	}
 	return percent, speed, eta
 }

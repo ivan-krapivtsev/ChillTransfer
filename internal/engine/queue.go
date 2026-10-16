@@ -49,7 +49,7 @@ func (s ItemStatus) terminal() bool {
 // Item is a single entry in the copy queue: one file or directory.
 type Item struct {
 	Path      string     // source path (file or directory)
-	SizeBytes uint64    // size in bytes; for directories — recursive sum of file sizes
+	SizeBytes uint64     // size in bytes; for directories — recursive sum of file sizes
 	Status    ItemStatus // current status
 }
 
