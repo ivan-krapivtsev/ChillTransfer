@@ -1,0 +1,15 @@
+# Задачи ChillTransfer
+
+Формат: `ID | Статус | Описание | Критерии приёмки | Ветка`.
+Статусы: `planned → in_progress → testing → review → done`.
+
+## Бэклог v1 (заполняется после согласования стека)
+| ID | Статус | Задача | Ветка |
+|---|---|---|---|
+| T-001 | planned | Каркас проекта: workspace, CI build matrix, smoke-тест UI | feature/project-scaffold |
+| T-002 | planned | Ядро: очередь копирования + движок (рекурсивно, прогресс, pause/resume/cancel) | feature/copy-engine |
+| T-003 | planned | Термический контроллер: сенсорный режим (гистерезис) + циклический режим | feature/thermal-governor |
+| T-004 | planned | Платформенный слой: перечисление устройств + чтение температуры (Win/macOS/Linux) | feature/platform-devices |
+| T-005 | planned | UI: выбор устройства, drag&drop, очередь, прогресс, настройки режимов | feature/ui-main-window |
+| T-006 | planned | Профили устройств (персистентность настроек per-device) | feature/device-profiles |
+| T-007 | planned | Локализация RU/EN + тёмная/светлая тема | feature/i18n-theming |
