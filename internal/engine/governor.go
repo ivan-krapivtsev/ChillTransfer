@@ -14,4 +14,7 @@ type TemperatureSource interface {
 type Governor interface {
 	// Tick advances the governor by dt and reports whether copying is allowed.
 	Tick(dt time.Duration) (allowCopy bool, reason string)
+
+	// PauseState reports which engine.State applies while blocked.
+	PauseState() State
 }
