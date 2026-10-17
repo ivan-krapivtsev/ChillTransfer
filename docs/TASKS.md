@@ -12,4 +12,7 @@
 | T-004 | done | Платформенный слой: перечисление устройств + чтение температуры (Win/macOS/Linux) | feature/platform-devices ✓ в develop |
 | T-005 | done | UI: выбор устройства, drag&drop, очередь, прогресс, настройки режимов | feature/ui-main-window ✓ в develop |
 | T-006 | done | Профили устройств (персистентность настроек per-device) | feature/device-profiles ✓ в develop |
-| T-007 | planned | Локализация RU/EN + тёмная/светлая тема | feature/i18n-theming |
+| T-007 | done | Локализация RU/EN + тёмная/светлая тема | feature/i18n-theming ✓ в develop |
+
+## v1 — функционально полна (все задачи T-001…T-007 в develop)
+Следующий этап: интеграционная проверка + подготовка релиза v0.1.0 (release-ветка → main, тег).
