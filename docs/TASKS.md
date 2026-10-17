@@ -10,6 +10,6 @@
 | T-002 | done | Ядро: очередь копирования + движок (рекурсивно, прогресс, pause/resume/cancel) | feature/copy-engine ✓ в develop |
 | T-003 | done | Термический контроллер: сенсорный режим (гистерезис) + циклический режим | feature/thermal-governor ✓ в develop |
 | T-004 | done | Платформенный слой: перечисление устройств + чтение температуры (Win/macOS/Linux) | feature/platform-devices ✓ в develop |
-| T-005 | planned | UI: выбор устройства, drag&drop, очередь, прогресс, настройки режимов | feature/ui-main-window |
+| T-005 | done | UI: выбор устройства, drag&drop, очередь, прогресс, настройки режимов | feature/ui-main-window ✓ в develop |
 | T-006 | planned | Профили устройств (персистентность настроек per-device) | feature/device-profiles |
 | T-007 | planned | Локализация RU/EN + тёмная/светлая тема | feature/i18n-theming |
