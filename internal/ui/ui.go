@@ -26,6 +26,9 @@ const defaultPollInterval = 500 * time.Millisecond
 // DeviceLister; Clock defaults to real time and drives copier timing.
 type UI struct {
 	App fyne.App
+	// I18N holds the user-visible string tables for the active language;
+	// New defaults it to DetectLanguage() (SPEC §7: RU + EN).
+	I18N *I18N
 	// Lister provides the device list; inject a fake in tests.
 	Lister DeviceLister
 	// Clock drives copier timing; inject a fake clock for deterministic tests.
@@ -75,8 +78,15 @@ type UI struct {
 }
 
 // New builds the main window with injected dependencies (device lister; clock
-// defaults to real time) and performs the initial device enumeration.
+// defaults to real time) and performs the initial device enumeration. The UI
+// language is detected from locale environment variables (SPEC §7).
 func New(a fyne.App, lister DeviceLister) *UI {
+	return NewWithI18N(a, lister, NewI18N(DetectLanguage()))
+}
+
+// NewWithI18N is like New but uses an explicit localization instance instead of
+// DetectLanguage; tests pin a language for deterministic widget text.
+func NewWithI18N(a fyne.App, lister DeviceLister, i *I18N) *UI {
 	if a == nil {
 		panic("ui: app is required")
 	}
@@ -85,6 +95,7 @@ func New(a fyne.App, lister DeviceLister) *UI {
 	}
 	u := &UI{
 		App:          a,
+		I18N:         i,
 		Lister:       lister,
 		Clock:        engine.RealClock{},
 		PollInterval: defaultPollInterval,
@@ -107,25 +118,25 @@ func New(a fyne.App, lister DeviceLister) *UI {
 func (u *UI) Content() fyne.CanvasObject {
 	deviceRow := container.NewBorder(
 		nil, nil,
-		widget.NewLabel("Устройство:"),
+		widget.NewLabel(u.I18N.T(KeyDeviceLabel)),
 		u.RefreshButton,
 		u.DeviceSelect,
 	)
 	dropZone := container.NewVBox(
-		widget.NewLabelWithStyle(DropZoneText, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(u.I18N.T(KeyDropZone), fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		container.New(layout.NewCenterLayout(), container.NewHBox(u.AddFilesButton, u.AddFolderButton)),
 	)
 	progressRow := container.NewHBox(u.CurrentFileLabel, layout.NewSpacer(), u.SpeedLabel, u.ETALabel)
 	modePanel := container.NewVBox(
-		container.NewHBox(widget.NewLabel("Режим:"), u.ModeRadio),
+		container.NewHBox(widget.NewLabel(u.I18N.T(KeyModeLabel)), u.ModeRadio),
 		container.NewHBox(
-			widget.NewLabel("T_pause"), u.TPauseEntry, widget.NewLabel("°C"),
-			widget.NewLabel("T_resume"), u.TResumeEntry, widget.NewLabel("°C"),
-			widget.NewLabel("опрос"), u.SensorPollEntry, widget.NewLabel("с"),
+			widget.NewLabel(u.I18N.T(KeyParamTPause)), u.TPauseEntry, widget.NewLabel(u.I18N.T(KeyUnitDegC)),
+			widget.NewLabel(u.I18N.T(KeyParamTResume)), u.TResumeEntry, widget.NewLabel(u.I18N.T(KeyUnitDegC)),
+			widget.NewLabel(u.I18N.T(KeyParamPoll)), u.SensorPollEntry, widget.NewLabel(u.I18N.T(KeyUnitSec)),
 		),
 		container.NewHBox(
-			widget.NewLabel("Работа"), u.WorkEntry, widget.NewLabel("мин"),
-			widget.NewLabel("Отдых"), u.RestEntry, widget.NewLabel("мин"),
+			widget.NewLabel(u.I18N.T(KeyParamWork)), u.WorkEntry, widget.NewLabel(u.I18N.T(KeyUnitMin)),
+			widget.NewLabel(u.I18N.T(KeyParamRest)), u.RestEntry, widget.NewLabel(u.I18N.T(KeyUnitMin)),
 		),
 	)
 	stateRow := container.NewHBox(u.StateLabel, layout.NewSpacer(), u.TempLabel)
@@ -137,7 +148,7 @@ func (u *UI) Content() fyne.CanvasObject {
 		widget.NewSeparator(),
 		dropZone,
 		widget.NewSeparator(),
-		widget.NewLabel("Очередь:"),
+		widget.NewLabel(u.I18N.T(KeyQueueLabel)),
 		u.QueueList,
 		widget.NewSeparator(),
 		u.ProgressBar,
@@ -153,11 +164,11 @@ func (u *UI) Content() fyne.CanvasObject {
 func (u *UI) buildWidgets() {
 	u.DeviceSelect = widget.NewSelect(nil, nil)
 	u.DeviceSelect.OnChanged = u.onDeviceSelected
-	u.SensorLabel = widget.NewLabel("Датчик: —")
-	u.RefreshButton = widget.NewButton("Обновить", func() { u.refreshDevices() })
+	u.SensorLabel = widget.NewLabel(u.I18N.T(KeySensorNone))
+	u.RefreshButton = widget.NewButton(u.I18N.T(KeyBtnRefresh), func() { u.refreshDevices() })
 
-	u.AddFilesButton = widget.NewButton("Добавить файлы", u.onAddFilesTapped)
-	u.AddFolderButton = widget.NewButton("Добавить папку", u.onAddFolderTapped)
+	u.AddFilesButton = widget.NewButton(u.I18N.T(KeyBtnAddFiles), u.onAddFilesTapped)
+	u.AddFolderButton = widget.NewButton(u.I18N.T(KeyBtnAddFolder), u.onAddFolderTapped)
 
 	u.QueueList = widget.NewList(
 		func() int { return len(u.Queue.Items()) },
@@ -170,12 +181,14 @@ func (u *UI) buildWidgets() {
 
 	u.ProgressBar = widget.NewProgressBar()
 	u.CurrentFileLabel = widget.NewLabel("")
-	u.SpeedLabel = widget.NewLabel("Скорость: —")
-	u.ETALabel = widget.NewLabel("ETA: —")
+	u.SpeedLabel = widget.NewLabel(u.I18N.T(KeySpeedLabel) + " —")
+	u.ETALabel = widget.NewLabel(u.I18N.T(KeyETALabel) + " —")
 
-	u.ModeRadio = widget.NewRadioGroup([]string{ModeSensor, ModeCycle}, nil)
+	// Radio options carry the localized labels; selection logic maps them back
+	// to canonical modes via selectedMode (T-007).
+	u.ModeRadio = widget.NewRadioGroup([]string{u.modeLabel(ModeSensor), u.modeLabel(ModeCycle)}, nil)
 	u.ModeRadio.Horizontal = true
-	u.ModeRadio.SetSelected(ModeCycle) // safe default before a device is selected
+	u.ModeRadio.SetSelected(u.modeLabel(ModeCycle)) // safe default before a device is selected
 
 	// Defaults per SPEC §5: 50/42 °C, 3 s poll, 10 min work / 5 min rest.
 	u.TPauseEntry = widget.NewEntry()
@@ -189,12 +202,12 @@ func (u *UI) buildWidgets() {
 	u.RestEntry = widget.NewEntry()
 	u.RestEntry.SetText(strconv.Itoa(int(engine.DefaultRestDuration.Minutes())))
 
-	u.StateLabel = widget.NewLabel("Состояние: " + engine.StateIdle.String())
+	u.StateLabel = widget.NewLabel(u.I18N.T(KeyStateLabel) + " " + u.I18N.StateText(engine.StateIdle))
 	u.TempLabel = widget.NewLabel("")
 
-	u.StartButton = widget.NewButton("Старт", func() { _ = u.Start() })
-	u.PauseButton = widget.NewButton("Пауза", u.TogglePause)
-	u.StopButton = widget.NewButton("Стоп", u.Stop)
+	u.StartButton = widget.NewButton(u.I18N.T(KeyBtnStart), func() { _ = u.Start() })
+	u.PauseButton = widget.NewButton(u.I18N.T(KeyBtnPause), u.TogglePause)
+	u.StopButton = widget.NewButton(u.I18N.T(KeyBtnStop), u.Stop)
 	u.ErrorLabel = widget.NewLabel("")
 
 	u.setRunningUI(false)
@@ -260,7 +273,7 @@ func (u *UI) addPaths(paths []string) {
 func (u *UI) refreshDevices() {
 	devs, err := u.Lister.List(false)
 	if err != nil {
-		u.setError(fmt.Sprintf("устройства: %v", err))
+		u.setError(fmt.Sprintf(u.I18N.T(KeyErrDevices), err))
 		return
 	}
 	prevID := ""
@@ -291,7 +304,7 @@ func (u *UI) refreshDevices() {
 	case !selected && len(devs) > 0:
 		u.DeviceSelect.SetSelected(options[0]) // initial load: pick the first device
 	case !selected && len(devs) == 0:
-		u.SensorLabel.SetText("Датчик: —")
+		u.SensorLabel.SetText(u.I18N.T(KeySensorNone))
 		u.TempLabel.SetText("")
 	}
 }
@@ -302,18 +315,37 @@ func (u *UI) refreshDevices() {
 func (u *UI) onDeviceSelected(_ string) {
 	dev := u.selectedDevice()
 	if dev == nil {
-		u.SensorLabel.SetText("Датчик: —")
+		u.SensorLabel.SetText(u.I18N.T(KeySensorNone))
 		u.TempLabel.SetText("")
 		return
 	}
 	if dev.TempSource != nil {
-		u.SensorLabel.SetText("Датчик: обнаружен")
-		u.ModeRadio.SetSelected(ModeSensor)
+		u.SensorLabel.SetText(u.I18N.T(KeySensorFound))
+		u.ModeRadio.SetSelected(u.modeLabel(ModeSensor))
 	} else {
-		u.SensorLabel.SetText("Датчик: не обнаружен")
-		u.ModeRadio.SetSelected(ModeCycle)
+		u.SensorLabel.SetText(u.I18N.T(KeySensorMissing))
+		u.ModeRadio.SetSelected(u.modeLabel(ModeCycle))
 	}
 	u.updateTemp()
+}
+
+// modeLabel returns the user-visible radio option label for a canonical copy
+// mode; ModeRadio options are localized while selection logic stays on the
+// language-neutral ModeSensor/ModeCycle identifiers.
+func (u *UI) modeLabel(mode string) string {
+	if mode == ModeSensor {
+		return u.I18N.T(KeyModeSensor)
+	}
+	return u.I18N.T(KeyModeCycle)
+}
+
+// selectedMode maps the radio's localized selection back to a canonical copy
+// mode; any unexpected value falls back to cycle.
+func (u *UI) selectedMode() string {
+	if u.ModeRadio.Selected == u.modeLabel(ModeSensor) {
+		return ModeSensor
+	}
+	return ModeCycle
 }
 
 func (u *UI) deviceIndex() int {
@@ -342,10 +374,10 @@ func (u *UI) updateTemp() {
 	}
 	temp, ok := dev.TempSource.Read()
 	if !ok {
-		u.TempLabel.SetText("Т: —")
+		u.TempLabel.SetText(u.I18N.T(KeyTempUnknown))
 		return
 	}
-	u.TempLabel.SetText(fmt.Sprintf("Т: %.1f°C", temp))
+	u.TempLabel.SetText(fmt.Sprintf(u.I18N.T(KeyTempValue), temp))
 }
 
 func (u *UI) refreshQueueList() { u.QueueList.Refresh() }
@@ -395,13 +427,13 @@ func (u *UI) Start() error {
 
 	dev := u.selectedDevice()
 	if dev == nil {
-		return u.failStart("выберите устройство")
+		return u.failStart(u.I18N.T(KeyErrSelectDevice))
 	}
 	if dev.MountPoint == "" {
-		return u.failStart("устройство не смонтировано — выберите другое")
+		return u.failStart(u.I18N.T(KeyErrNotMounted))
 	}
 
-	mode := u.ModeRadio.Selected
+	mode := u.selectedMode()
 	var (
 		gov          engine.Governor
 		tickInterval time.Duration // 0 keeps the copier default (500 ms)
@@ -409,21 +441,21 @@ func (u *UI) Start() error {
 	switch mode {
 	case ModeSensor:
 		if dev.TempSource == nil {
-			return u.failStart("датчик не обнаружен — используйте режим «Цикл»")
+			return u.failStart(u.I18N.T(KeyErrNoSensor))
 		}
-		tPause, err := parseFloatParam(u.TPauseEntry.Text, "T_pause")
+		tPause, err := parseFloatParam(u.I18N, u.TPauseEntry.Text, u.I18N.T(KeyParamTPause))
 		if err != nil {
 			return u.failStart(err.Error())
 		}
-		tResume, err := parseFloatParam(u.TResumeEntry.Text, "T_resume")
+		tResume, err := parseFloatParam(u.I18N, u.TResumeEntry.Text, u.I18N.T(KeyParamTResume))
 		if err != nil {
 			return u.failStart(err.Error())
 		}
-		pollSec, err := parseFloatParam(u.SensorPollEntry.Text, "интервал опроса")
+		pollSec, err := parseFloatParam(u.I18N, u.SensorPollEntry.Text, u.I18N.T(KeyParamPoll))
 		if err != nil {
 			return u.failStart(err.Error())
 		}
-		if verr := ValidateSensorParams(tPause, tResume, pollSec); verr != nil {
+		if verr := ValidateSensorParams(u.I18N, tPause, tResume, pollSec); verr != nil {
 			return u.failStart(verr.Error())
 		}
 		g, gerr := engine.NewSensorGovernor(dev.TempSource, tPause, tResume)
@@ -433,15 +465,15 @@ func (u *UI) Start() error {
 		gov = g
 		tickInterval = time.Duration(pollSec * float64(time.Second)) // FR-4: sensor polling interval
 	default: // ModeCycle (any unexpected value falls back to cycle)
-		workMin, err := parseFloatParam(u.WorkEntry.Text, "рабочий интервал")
+		workMin, err := parseFloatParam(u.I18N, u.WorkEntry.Text, u.I18N.T(KeyParamWork))
 		if err != nil {
 			return u.failStart(err.Error())
 		}
-		restMin, err := parseFloatParam(u.RestEntry.Text, "отдых")
+		restMin, err := parseFloatParam(u.I18N, u.RestEntry.Text, u.I18N.T(KeyParamRest))
 		if err != nil {
 			return u.failStart(err.Error())
 		}
-		if verr := ValidateCycleParams(workMin, restMin); verr != nil {
+		if verr := ValidateCycleParams(u.I18N, workMin, restMin); verr != nil {
 			return u.failStart(verr.Error())
 		}
 		g, gerr := engine.NewCycleGovernor(
@@ -492,7 +524,7 @@ func (u *UI) Start() error {
 	go func() {
 		defer close(done)
 		if err := copier.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			u.setError("копирование: " + err.Error()) // StopOnError path
+			u.setError(fmt.Sprintf(u.I18N.T(KeyErrCopy), err.Error())) // StopOnError path
 		}
 	}()
 	if pollStop != nil {
@@ -540,9 +572,9 @@ func (u *UI) TogglePause() {
 	paused := !gate.Paused()
 	gate.SetPaused(paused)
 	if paused {
-		u.PauseButton.SetText("Продолжить")
+		u.PauseButton.SetText(u.I18N.T(KeyBtnResume))
 	} else {
-		u.PauseButton.SetText("Пауза")
+		u.PauseButton.SetText(u.I18N.T(KeyBtnPause))
 	}
 }
 
@@ -561,13 +593,13 @@ func (u *UI) Poll() {
 	snap := copier.Snapshot()
 	u.ProgressBar.SetValue(snap.OverallPercent / 100)
 	u.CurrentFileLabel.SetText(currentFileText(snap.CurrentFile))
-	u.SpeedLabel.SetText("Скорость: " + formatSpeed(snap.SpeedBps))
+	u.SpeedLabel.SetText(u.I18N.T(KeySpeedLabel) + " " + formatSpeed(snap.SpeedBps))
 	if snap.ETA > 0 {
-		u.ETALabel.SetText("ETA: " + formatDuration(snap.ETA))
+		u.ETALabel.SetText(u.I18N.T(KeyETALabel) + " " + formatDuration(snap.ETA))
 	} else {
-		u.ETALabel.SetText("ETA: —")
+		u.ETALabel.SetText(u.I18N.T(KeyETALabel) + " —")
 	}
-	u.StateLabel.SetText("Состояние: " + snap.State.String())
+	u.StateLabel.SetText(u.I18N.T(KeyStateLabel) + " " + u.I18N.StateText(snap.State))
 	u.updateTemp()
 
 	if !snap.State.Active() {
@@ -621,7 +653,7 @@ func (u *UI) setRunningUI(running bool) {
 		u.SensorPollEntry.Enable()
 		u.WorkEntry.Enable()
 		u.RestEntry.Enable()
-		u.PauseButton.SetText("Пауза")
+		u.PauseButton.SetText(u.I18N.T(KeyBtnPause))
 	}
 	u.refreshQueueList() // rebuild rows: remove buttons only when idle
 }
