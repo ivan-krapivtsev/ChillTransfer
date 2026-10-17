@@ -208,6 +208,66 @@ func TestStartRejectsInvalidModeInputs(t *testing.T) {
 
 // TestStartSensorModeWithoutSensorRejected verifies sensor mode cannot start on a
 // device without a temperature source (SPEC §4 fallback rule).
+// TestStartSensorModeRejectsOutOfRangeTemps verifies sensor-mode inputs are
+// validated on Start (SPEC §5): out-of-range T_pause, T_resume >= T_pause and a
+// zero poll interval block start, while SPEC §5 defaults start a run that
+// thermally pauses on a hot sensor.
+func TestStartSensorModeRejectsOutOfRangeTemps(t *testing.T) {
+	srcDir := t.TempDir()
+	writeFile(t, filepath.Join(srcDir, "data.bin"), 4096)
+
+	u := newTestUI(t, &fakeLister{devices: []devices.Device{mountedDevice(t, true)}})
+	u.PollInterval = 0 // drive Poll() manually from this goroutine
+	u.ModeRadio.SetSelected(ui.ModeSensor)
+	u.HandleDrop([]fyne.URI{fileURI(t, filepath.Join(srcDir, "data.bin"))})
+
+	cases := []struct {
+		name     string
+		tPause   string
+		tResume  string
+		pollSecs string
+	}{
+		{"tpause above range", "90", "42", "3"},
+		{"tresume equals tpause", "50", "50", "3"},
+		{"poll zero", "50", "42", "0"},
+	}
+	for _, tc := range cases {
+		u.TPauseEntry.SetText(tc.tPause)
+		u.TResumeEntry.SetText(tc.tResume)
+		u.SensorPollEntry.SetText(tc.pollSecs)
+		if err := u.Start(); err == nil {
+			t.Fatalf("%s: Start accepted invalid sensor parameters", tc.name)
+		}
+		if u.ErrorLabel.Text == "" {
+			t.Errorf("%s: error label not set after failed start", tc.name)
+		}
+		if u.Running() {
+			t.Fatalf("%s: run must not start on invalid inputs", tc.name)
+		}
+	}
+
+	// SPEC §5 defaults are accepted; the hot sensor (80 °C ≥ 50 °C) pauses the run.
+	u.TPauseEntry.SetText("50")
+	u.TResumeEntry.SetText("42")
+	u.SensorPollEntry.SetText("3")
+	if err := u.Start(); err != nil {
+		t.Fatalf("Start with default sensor parameters: %v", err)
+	}
+	defer u.Stop()
+
+	waitFor(t, u, "paused_thermal state", func() bool {
+		return strings.HasSuffix(u.StateLabel.Text, "paused_thermal")
+	})
+	if !u.Running() {
+		t.Fatal("run must stay active while thermally paused")
+	}
+
+	u.Stop()
+	waitFor(t, u, "cancelled state", func() bool {
+		return strings.HasSuffix(u.StateLabel.Text, "cancelled")
+	})
+}
+
 func TestStartSensorModeWithoutSensorRejected(t *testing.T) {
 	u := newTestUI(t, &fakeLister{devices: []devices.Device{mountedDevice(t, false)}})
 	u.ModeRadio.SetSelected(ui.ModeSensor)
