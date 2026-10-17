@@ -1,0 +1,11 @@
+!docs/
+
+# Go build artifacts
+bin/
+dist/
+*.test
+*.exe
+.worktrees/
+
+# Pi session data
+.pi/
