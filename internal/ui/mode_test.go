@@ -8,7 +8,11 @@ import (
 
 // TestValidateSensorParams verifies SPEC §5 rules: defaults pass, thresholds are
 // bounded to 30..80 °C with T_resume < T_pause, poll interval must be positive.
+// testI18N returns the RU localization used by validation tests (T-007).
+func testI18N() *ui.I18N { return ui.NewI18N(ui.LangRU) }
+
 func TestValidateSensorParams(t *testing.T) {
+	i := testI18N()
 	valid := []struct {
 		name     string
 		tPause   float64
@@ -20,7 +24,7 @@ func TestValidateSensorParams(t *testing.T) {
 		{"boundary high", 80, 79, 60},
 	}
 	for _, tc := range valid {
-		if err := ui.ValidateSensorParams(tc.tPause, tc.tResume, tc.pollSecs); err != nil {
+		if err := ui.ValidateSensorParams(i, tc.tPause, tc.tResume, tc.pollSecs); err != nil {
 			t.Errorf("%s: %v", tc.name, err)
 		}
 	}
@@ -41,7 +45,7 @@ func TestValidateSensorParams(t *testing.T) {
 		{"poll negative", 50, 42, -1},
 	}
 	for _, tc := range invalid {
-		if err := ui.ValidateSensorParams(tc.tPause, tc.tResume, tc.pollSecs); err == nil {
+		if err := ui.ValidateSensorParams(i, tc.tPause, tc.tResume, tc.pollSecs); err == nil {
 			t.Errorf("%s: expected error", tc.name)
 		}
 	}
@@ -49,6 +53,7 @@ func TestValidateSensorParams(t *testing.T) {
 
 // TestValidateCycleParams verifies work/rest durations are bounded to 1..60 minutes.
 func TestValidateCycleParams(t *testing.T) {
+	i := testI18N()
 	valid := []struct {
 		name    string
 		workMin float64
@@ -59,7 +64,7 @@ func TestValidateCycleParams(t *testing.T) {
 		{"boundary high", 60, 60},
 	}
 	for _, tc := range valid {
-		if err := ui.ValidateCycleParams(tc.workMin, tc.restMin); err != nil {
+		if err := ui.ValidateCycleParams(i, tc.workMin, tc.restMin); err != nil {
 			t.Errorf("%s: %v", tc.name, err)
 		}
 	}
@@ -76,7 +81,7 @@ func TestValidateCycleParams(t *testing.T) {
 		{"rest above range", 10, 61},
 	}
 	for _, tc := range invalid {
-		if err := ui.ValidateCycleParams(tc.workMin, tc.restMin); err == nil {
+		if err := ui.ValidateCycleParams(i, tc.workMin, tc.restMin); err == nil {
 			t.Errorf("%s: expected error", tc.name)
 		}
 	}

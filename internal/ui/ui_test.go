@@ -28,9 +28,11 @@ type fixedTemp float64
 
 func (f fixedTemp) Read() (float64, bool) { return float64(f), true }
 
+// newTestUI builds a UI with Russian pinned (T-007): widget text assertions in
+// this package are written against the RU table regardless of host locale.
 func newTestUI(t *testing.T, lister ui.DeviceLister) *ui.UI {
 	t.Helper()
-	return ui.New(test.NewApp(), lister)
+	return ui.NewWithI18N(test.NewApp(), lister, ui.NewI18N(ui.LangRU))
 }
 
 // mountedDevice returns a device whose MountPoint is a fresh temp dir; withSensor
@@ -102,7 +104,7 @@ func TestDeviceListRendersFromInjectedProvider(t *testing.T) {
 	if u.SensorLabel.Text != "Датчик: не обнаружен" {
 		t.Errorf("sensor label = %q, want «Датчик: не обнаружен»", u.SensorLabel.Text)
 	}
-	if u.ModeRadio.Selected != ui.ModeCycle {
+	if u.ModeRadio.Selected != u.I18N.T(ui.KeyModeCycle) {
 		t.Errorf("mode = %q, want Цикл (no sensor)", u.ModeRadio.Selected)
 	}
 }
@@ -117,12 +119,12 @@ func TestDeviceWithSensorAutoSelectsSensorMode(t *testing.T) {
 	if u.SensorLabel.Text != "Датчик: обнаружен" {
 		t.Errorf("sensor label = %q, want «Датчик: обнаружен»", u.SensorLabel.Text)
 	}
-	if u.ModeRadio.Selected != ui.ModeSensor {
+	if u.ModeRadio.Selected != u.I18N.T(ui.KeyModeSensor) {
 		t.Errorf("mode = %q, want Датчик (sensor present)", u.ModeRadio.Selected)
 	}
 
-	u.ModeRadio.SetSelected(ui.ModeCycle) // manual override allowed
-	if u.ModeRadio.Selected != ui.ModeCycle {
+	u.ModeRadio.SetSelected(u.I18N.T(ui.KeyModeCycle)) // manual override allowed
+	if u.ModeRadio.Selected != u.I18N.T(ui.KeyModeCycle) {
 		t.Errorf("manual mode override lost: %q", u.ModeRadio.Selected)
 	}
 }
@@ -203,7 +205,9 @@ func TestStartRejectsInvalidModeInputs(t *testing.T) {
 		t.Fatalf("Start with default parameters: %v", err)
 	}
 	// Empty queue completes immediately; wait for the terminal state.
-	waitFor(t, u, "done state", func() bool { return strings.HasSuffix(u.StateLabel.Text, "done") })
+	waitFor(t, u, "done state", func() bool {
+		return strings.HasSuffix(u.StateLabel.Text, u.I18N.T(ui.KeyStateDone))
+	})
 }
 
 // TestStartSensorModeWithoutSensorRejected verifies sensor mode cannot start on a
@@ -218,7 +222,7 @@ func TestStartSensorModeRejectsOutOfRangeTemps(t *testing.T) {
 
 	u := newTestUI(t, &fakeLister{devices: []devices.Device{mountedDevice(t, true)}})
 	u.PollInterval = 0 // drive Poll() manually from this goroutine
-	u.ModeRadio.SetSelected(ui.ModeSensor)
+	u.ModeRadio.SetSelected(u.I18N.T(ui.KeyModeSensor))
 	u.HandleDrop([]fyne.URI{fileURI(t, filepath.Join(srcDir, "data.bin"))})
 
 	cases := []struct {
@@ -256,7 +260,7 @@ func TestStartSensorModeRejectsOutOfRangeTemps(t *testing.T) {
 	defer u.Stop()
 
 	waitFor(t, u, "paused_thermal state", func() bool {
-		return strings.HasSuffix(u.StateLabel.Text, "paused_thermal")
+		return strings.HasSuffix(u.StateLabel.Text, u.I18N.T(ui.KeyStatePausedThermal))
 	})
 	if !u.Running() {
 		t.Fatal("run must stay active while thermally paused")
@@ -264,13 +268,13 @@ func TestStartSensorModeRejectsOutOfRangeTemps(t *testing.T) {
 
 	u.Stop()
 	waitFor(t, u, "cancelled state", func() bool {
-		return strings.HasSuffix(u.StateLabel.Text, "cancelled")
+		return strings.HasSuffix(u.StateLabel.Text, u.I18N.T(ui.KeyStateCancelled))
 	})
 }
 
 func TestStartSensorModeWithoutSensorRejected(t *testing.T) {
 	u := newTestUI(t, &fakeLister{devices: []devices.Device{mountedDevice(t, false)}})
-	u.ModeRadio.SetSelected(ui.ModeSensor)
+	u.ModeRadio.SetSelected(u.I18N.T(ui.KeyModeSensor))
 
 	if err := u.Start(); err == nil {
 		t.Fatal("Start accepted sensor mode without a temperature source")
@@ -298,7 +302,7 @@ func TestStartStopTransitionsState(t *testing.T) {
 
 	// Hot sensor (80 °C ≥ T_pause 50 °C) blocks the copier before copying.
 	waitFor(t, u, "paused_thermal state", func() bool {
-		return strings.HasSuffix(u.StateLabel.Text, "paused_thermal")
+		return strings.HasSuffix(u.StateLabel.Text, u.I18N.T(ui.KeyStatePausedThermal))
 	})
 	if !u.Running() {
 		t.Fatal("run must stay active while thermally paused")
@@ -306,7 +310,7 @@ func TestStartStopTransitionsState(t *testing.T) {
 
 	u.Stop()
 	waitFor(t, u, "cancelled state", func() bool {
-		return strings.HasSuffix(u.StateLabel.Text, "cancelled")
+		return strings.HasSuffix(u.StateLabel.Text, u.I18N.T(ui.KeyStateCancelled))
 	})
 	if u.Running() {
 		t.Fatal("run must be inactive after Stop")
@@ -330,7 +334,7 @@ func TestStartCompletesSmallCopy(t *testing.T) {
 	}
 
 	waitFor(t, u, "done state", func() bool {
-		return strings.HasSuffix(u.StateLabel.Text, "done")
+		return strings.HasSuffix(u.StateLabel.Text, u.I18N.T(ui.KeyStateDone))
 	})
 	if u.Running() {
 		t.Fatal("run must be inactive after completion")
