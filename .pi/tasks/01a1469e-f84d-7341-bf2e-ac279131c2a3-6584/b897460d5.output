@@ -1,0 +1,2 @@
+cannot use `--jq` without specifying `--json`
+CI RUN fixes CONCLUSION: 
