@@ -17,6 +17,12 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      # Fyne's glfw driver needs Wayland/X11 development headers on Linux.
+      - name: Install GL/Wayland headers (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev
       - name: Vet
         run: go vet ./...
       - name: Test

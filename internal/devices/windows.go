@@ -127,6 +127,12 @@ func describeDrive(root string, driveType uint32) Device {
 		d.Removable = true
 	}
 
+	// Last-resort ID fallback: IOCTLs failed and the drive is not removable.
+	// The letter-based ID is not stable across reboots, but a device without
+	// an ID can never match saved profiles (FR-6), so completeness wins.
+	if d.ID == "" {
+		d.ID = "win:" + root[:1]
+	}
 	if d.Label == "" {
 		d.Label = root
 	}
