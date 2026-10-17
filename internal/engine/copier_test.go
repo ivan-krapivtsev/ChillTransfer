@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -158,9 +159,12 @@ func TestCopierRecursiveFolderCopyPreservesStructureAndMtimes(t *testing.T) {
 		t.Errorf("dest mtimes = %s / %s, want %s / %s", aInfo.ModTime(), bInfo.ModTime(), when1, when2)
 	}
 
-	// Mode preserved.
-	if got := aInfo.Mode().Perm(); got != 0o644 {
-		t.Errorf("dest mode = %o, want 644", got)
+	// Mode preserved. Windows has no Unix permission bits (Chmod only toggles
+	// read-only), so the exact-mode check applies to Unix platforms only.
+	if runtime.GOOS != "windows" {
+		if got := aInfo.Mode().Perm(); got != 0o644 {
+			t.Errorf("dest mode = %o, want 644", got)
+		}
 	}
 
 	// Directory mtime preserved (best-effort, FR-3).

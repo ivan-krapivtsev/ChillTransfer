@@ -6,3 +6,6 @@ dist/
 *.test
 *.exe
 .worktrees/
+
+# Pi session data
+.pi/

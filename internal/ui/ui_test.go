@@ -66,7 +66,9 @@ func fileURI(t *testing.T, path string) fyne.URI {
 // PollInterval == 0 (no background ticker), so this is the only widget writer.
 func waitFor(t *testing.T, u *ui.UI, what string, cond func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	// 30 s deadline: CI runners are slow and the Run goroutine may be
+	// starved under parallel test load; the state transition itself is fast.
+	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
 		u.Poll()
 		if cond() {
@@ -171,10 +173,12 @@ func TestDroppedURIsLandInQueue(t *testing.T) {
 	if len(items) != 2 {
 		t.Fatalf("queue length = %d, want 2", len(items))
 	}
-	if items[0].Path != f1 || items[0].SizeBytes != 1024 {
+	// fyne URI.Path() normalizes separators (forward slashes on Windows), so
+	// compare Clean-normalized paths instead of raw string equality.
+	if filepath.Clean(items[0].Path) != filepath.Clean(f1) || items[0].SizeBytes != 1024 {
 		t.Errorf("item 0 = %+v, want path=%s size=1024", items[0], f1)
 	}
-	if items[1].Path != f2 || items[1].SizeBytes != 2048 {
+	if filepath.Clean(items[1].Path) != filepath.Clean(f2) || items[1].SizeBytes != 2048 {
 		t.Errorf("item 1 = %+v, want path=%s size=2048", items[1], f2)
 	}
 	if got := u.QueueList.Length(); got != 2 {

@@ -17,9 +17,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      # Fyne's glfw driver needs Wayland/X11 development headers on Linux.
+      - name: Install GL/Wayland headers (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          # xorg-dev alone does not pull in the Wayland client headers on
+          # Ubuntu 24.04; Fyne's glfw driver needs them explicitly.
+          sudo apt-get install -y \
+            libgl1-mesa-dev xorg-dev libwayland-dev \
+            wayland-protocols libxkbcommon-dev
       - name: Vet
         run: go vet ./...
+      # -p 1: GUI tests spawn copy goroutines; running package binaries in
+      # parallel on small runners starves them (observed 30 s+ stalls).
       - name: Test
-        run: go test ./...
+        run: go test -p 1 ./...
       - name: Build
         run: go build -o bin/chilltransfer ./cmd/chilltransfer

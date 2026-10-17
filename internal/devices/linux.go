@@ -83,6 +83,13 @@ func linuxDevice(b lsblkBlock, mounts map[string]procMount) Device {
 		break
 	}
 
+	// Last-resort label fallback: CI runners and some disks report no model or
+	// partition label. A device without a label is unusable in the UI (FR-1),
+	// so fall back to the kernel name.
+	if d.Label == "" {
+		d.Label = b.Name
+	}
+
 	if d.MountPoint != "" {
 		var st syscall.Statfs_t
 		if err := syscall.Statfs(d.MountPoint, &st); err == nil {
